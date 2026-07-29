@@ -1,5 +1,5 @@
 /* Bump CACHE on every deploy — a stale shell is the classic PWA support call. */
-const CACHE = 'thirty-day-training-v2-single-wire';
+const CACHE = 'thirty-day-training-v3-live-ring';
 
 const SHELL = [
   './',

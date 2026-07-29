@@ -401,6 +401,45 @@ function sheetView() {
   </div>`;
 }
 
+/**
+ * Repaints the hero ring, counters and phase chips in place after a tick, so
+ * the headline percentage matches the checkbox that was just tapped instead of
+ * waiting for the next full render.
+ */
+function updateHero(employee) {
+  const view = $('#view');
+  const ring = view.querySelector('.ring .value');
+  if (!ring) return;
+
+  const done = countCompletedDays(employee.checked || {});
+  const pct = TOTAL_TASKS ? Math.round((done / TOTAL_TASKS) * 100) : 0;
+  const circumference = 2 * Math.PI * 40;
+  ring.setAttribute('stroke-dashoffset', (circumference * (1 - pct / 100)).toFixed(1));
+
+  const label = view.querySelector('.ring .label');
+  if (label) {
+    label.querySelector('b').textContent = `${pct}%`;
+    label.querySelector('span').textContent = `${done}/${TOTAL_TASKS}`;
+  }
+
+  const dayCount = DAY_TASKS.filter((task) => employee.checked?.[task.id]).length;
+  const subs = view.querySelectorAll('.hero-copy .sub');
+  if (subs[1]) subs[1].textContent = `Day ${dayCount} of 30 milestones checked`;
+
+  const last = getLastActivity(employee.checked || {});
+  const lastNode = view.querySelector('.hero-copy .last');
+  if (last && lastNode) lastNode.textContent = `Last: ${last}`;
+
+  const chips = view.querySelectorAll('.chips .chip');
+  PHASES.forEach((phase, index) => {
+    const chip = chips[index];
+    if (!chip) return;
+    const progress = phaseProgress(phase, employee);
+    chip.textContent = `${phase.title.replace(/ —.*$/, '')} ${progress.done}/${progress.total}`;
+    chip.classList.toggle('done', progress.done === progress.total && progress.total > 0);
+  });
+}
+
 function phaseCard(phase, employee) {
   const progress = phaseProgress(phase, employee);
   const open = state.openPhases.has(phase.key);
@@ -657,6 +696,7 @@ function wireView() {
             phase.querySelector('.phase-bar i').style.width = `${progress.pct}%`;
           }
         }
+        updateHero(employee);
         queueSave(employee);
         break;
       }
