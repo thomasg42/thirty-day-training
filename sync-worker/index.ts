@@ -123,21 +123,18 @@ function isDict(value: unknown): value is Dict {
 }
 
 /**
- * Two managers can have the same trainee open. Merge the progress maps key by
- * key instead of letting the last full save clobber the other's sign-offs.
+ * Two managers can have the same trainee open. Overlay the progress maps key by
+ * key so a save only touches the milestones that device actually knows about —
+ * a key it never mentions (because the other device just added it) survives.
+ *
+ * Within a single key this is last-write-wins, deliberately: un-checking a
+ * milestone ticked by mistake has to work, so an incoming `false` must be able
+ * to overwrite a stored `true`.
  */
 function mergeMaps(current: unknown, incoming: unknown): Dict {
   const base = isDict(current) ? { ...current } : {};
   if (!isDict(incoming)) return base;
-  for (const [key, value] of Object.entries(incoming)) {
-    const existing = base[key];
-    const incomingIsEmpty = value === false || value === '' || value === null || value === undefined;
-    // An explicit un-check wins only if nothing is already recorded, so a
-    // stale device cannot silently erase a completed milestone.
-    if (incomingIsEmpty && existing !== undefined && existing !== false && existing !== '') continue;
-    base[key] = value;
-  }
-  return base;
+  return { ...base, ...incoming };
 }
 
 const MAP_FIELDS = ['checked', 'initials', 'managerSignoffs', 'signatures', 'policySignatures', 'watchedVideos'];
