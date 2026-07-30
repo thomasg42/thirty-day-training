@@ -1,7 +1,7 @@
 export const preStartTasks = [
-  { id: 'ps-1', milestone: 'In-person meeting conducted', description: 'Face-to-face onboarding meeting completed with new hire.' },
-  { id: 'ps-2', milestone: 'Welcome conversation done', description: 'Welcome to the Noodles & Company family!' },
-  { id: 'ps-3', milestone: 'Lead + Hiring Manager both say YES – file double-checked', description: 'Both Lead and Hiring Manager confirm – all paperwork verified.', highlightWord: 'YES' },
+  { id: 'ps-1', milestone: 'Phone call interview pre-qualifier is a good fit', description: 'Phone screen completed — candidate is a good fit to move forward.' },
+  { id: 'ps-2', milestone: 'In-person meeting was done', description: 'Face-to-face onboarding meeting completed with new hire.' },
+  { id: 'ps-3', milestone: 'Both parties say yes', description: 'Lead and Hiring Manager both confirm yes — paperwork double-checked.', highlightWord: 'yes' },
   { id: 'ps-4', milestone: 'Two forms of ID verified', description: 'Government-issued identification confirmed on file.' },
   { id: 'ps-5', milestone: 'Clocked in for the first time', description: 'First official clock-in recorded in the system.' },
   { id: 'ps-6', milestone: 'Noodles shirt issued', description: 'Official Noodles & Company uniform shirt provided.' },
@@ -199,11 +199,11 @@ export function getLastActivity(checkedMap) {
 export const policyPack = {
   title: 'Policy Pack — Read & Sign',
   items: [
-    { id: 'policy-cv-read', label: 'Core Values — read in full', kind: 'read' },
+    { id: 'policy-cv-read', label: 'Core Values — read in full', kind: 'read', policyUrlKey: 'policy-core-values' },
     { id: 'policy-cv-sign', label: 'Core Values — signed', kind: 'sign', signKey: 'core_values' },
-    { id: 'policy-wc-read', label: 'Workplace Conduct — read in full', kind: 'read' },
+    { id: 'policy-wc-read', label: 'Workplace Conduct — read in full', kind: 'read', policyUrlKey: 'policy-workplace-conduct' },
     { id: 'policy-wc-sign', label: 'Workplace Conduct — signed', kind: 'sign', signKey: 'workplace_conduct' },
-    { id: 'policy-att-read', label: 'Attendance Policy — read in full', kind: 'read' },
+    { id: 'policy-att-read', label: 'Attendance Policy — read in full', kind: 'read', policyUrlKey: 'policy-attendance' },
     { id: 'policy-att-sign', label: 'Attendance Policy — signed', kind: 'sign', signKey: 'attendance' },
     { id: 'policy-video', label: 'Policy overview video watched end to end', kind: 'video', videoKey: 'policy-video' },
   ],
@@ -318,6 +318,9 @@ export function collectMediaKeys() {
   });
   [...policyPack.items, ...policyPack2.items].forEach((item) => {
     if (item.videoKey) keys.push({ key: item.videoKey, label: item.label, type: 'video', taskId: item.id, milestone: item.label });
+    if (item.policyUrlKey && !keys.some((entry) => entry.key === item.policyUrlKey)) {
+      keys.push({ key: item.policyUrlKey, label: `${item.label} — document`, type: 'doc', taskId: item.id, milestone: item.label });
+    }
   });
   return keys;
 }
