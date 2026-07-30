@@ -218,6 +218,18 @@ export const policyPack2 = {
   ],
 };
 
+/**
+ * Kitchen walkthrough. In the Base44 build these sat above Phase 1 and Phase 2
+ * as reference media rather than milestones, so they render as links only and
+ * deliberately do NOT count toward the 61 checkable tasks.
+ */
+export const kitchenWalkthrough = [
+  { key: 'kitchen-1', label: 'Walkthrough 1', type: 'video' },
+  { key: 'kitchen-2', label: 'Walkthrough 2', type: 'video' },
+  { key: 'kitchen-3', label: 'Walkthrough 3', type: 'video' },
+  { key: 'policy-kitchen', label: 'Kitchen policy doc', type: 'doc' },
+];
+
 /** Ordered render plan for the whole check sheet. */
 export const PHASES = [
   {
@@ -233,6 +245,14 @@ export const PHASES = [
     subtitle: 'Read and sign each policy',
     tone: 'slate',
     policyItems: policyPack.items,
+  },
+  {
+    key: 'kitchen',
+    title: 'Welcome to the Kitchen',
+    subtitle: 'Walkthrough — watch before Phase 1',
+    tone: 'slate',
+    mediaOnly: true,
+    media: kitchenWalkthrough,
   },
   {
     key: 'phase-1',
@@ -278,9 +298,15 @@ export const PHASES = [
   },
 ];
 
+/** The welcome block shown at the top of the sheet, before Pre-Start. */
+export const WELCOME_MEDIA_KEY = 'welcome-video';
+
 /** Every media key referenced by a task button, in render order. */
 export function collectMediaKeys() {
-  const keys = [];
+  const keys = [
+    { key: WELCOME_MEDIA_KEY, label: 'Welcome video', type: 'video', taskId: 'welcome', milestone: 'Welcome block (top of sheet)' },
+    ...kitchenWalkthrough.map((item) => ({ ...item, taskId: 'kitchen', milestone: 'Welcome to the Kitchen' })),
+  ];
   ALL_TASKS.forEach((task) => {
     (task.buttons || []).forEach((button, index) => {
       const key = button.key || `${task.id}-b${index}`;

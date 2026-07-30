@@ -8,7 +8,7 @@
  *            branding and credential rotation
  */
 
-import { PHASES, ALL_TASKS, TOTAL_TASKS, TASK_BY_ID, SIGNATURE_BLOCKS, collectMediaKeys, countCompletedDays, getLastActivity, DAY_TASKS } from './data/curriculum.js';
+import { PHASES, ALL_TASKS, TOTAL_TASKS, TASK_BY_ID, SIGNATURE_BLOCKS, WELCOME_MEDIA_KEY, collectMediaKeys, countCompletedDays, getLastActivity, DAY_TASKS } from './data/curriculum.js';
 import { BRANDS, DEFAULT_BRAND, applyBrand } from './brand.js';
 import * as cloud from './cloud.js';
 
@@ -386,12 +386,14 @@ function sheetView() {
         </div>
       </div>
       <div class="chips">
-        ${PHASES.map((phase) => {
+        ${PHASES.filter((phase) => !phase.mediaOnly).map((phase) => {
           const progress = phaseProgress(phase, employee);
           return `<span class="chip ${progress.done === progress.total && progress.total ? 'done' : ''}">${esc(phase.title.replace(/ —.*$/, ''))} ${progress.done}/${progress.total}</span>`;
         }).join('')}
       </div>
     </section>
+
+    ${welcomeCard(employee)}
 
     ${PHASES.map((phase) => phaseCard(phase, employee)).join('')}
 
@@ -431,7 +433,7 @@ function updateHero(employee) {
   if (last && lastNode) lastNode.textContent = `Last: ${last}`;
 
   const chips = view.querySelectorAll('.chips .chip');
-  PHASES.forEach((phase, index) => {
+  PHASES.filter((phase) => !phase.mediaOnly).forEach((phase, index) => {
     const chip = chips[index];
     if (!chip) return;
     const progress = phaseProgress(phase, employee);
@@ -440,9 +442,56 @@ function updateHero(employee) {
   });
 }
 
+/**
+ * The welcome block. Mirrors Base44's Welcome Message Editor: an optional
+ * message plus a titled video with a caption, all admin-editable.
+ */
+function welcomeCard(employee) {
+  const welcome = state.settings.welcome || {};
+  if (welcome.enabled === false) return '';
+  const url = safeUrl(mediaMap()[WELCOME_MEDIA_KEY]);
+  const message = welcome.message || '';
+  if (!url && !message) return '';
+
+  const embed = youTubeEmbed(url);
+  const title = welcome.videoTitle || 'Watch the welcome video';
+  return `<section class="card card-pad">
+    <h2>Welcome${employee.firstName ? `, ${esc(employee.firstName)}` : ''}</h2>
+    ${message ? `<p class="muted" style="margin-top:6px">${esc(message)}</p>` : ''}
+    ${url ? `<div class="links" style="margin-top:12px">
+      ${embed
+        ? `<button class="link-btn" data-act="play-welcome" data-embed="${esc(embed)}">
+             <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> ${esc(title)}
+           </button>`
+        : `<a class="link-btn" href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(title)}</a>`}
+    </div>
+    <div class="embed hidden" data-embed-for="welcome"></div>` : ''}
+    ${welcome.videoDescription ? `<p class="tiny" style="margin-top:10px">${esc(welcome.videoDescription)}</p>` : ''}
+  </section>`;
+}
+
 function phaseCard(phase, employee) {
-  const progress = phaseProgress(phase, employee);
   const open = state.openPhases.has(phase.key);
+
+  // Reference-media sections carry no milestones, so they get no counter or bar.
+  if (phase.mediaOnly) {
+    const links = phase.media.map((item) => mediaLink(item.key, item.label, item.type, employee)).join('');
+    return `<section class="card phase ${open ? 'open' : ''}" data-tone="${phase.tone}" data-phase="${esc(phase.key)}">
+      <button class="phase-head" data-act="toggle-phase" data-phase="${esc(phase.key)}">
+        <span class="t"><b>${esc(phase.title)}</b><span>${esc(phase.subtitle)}</span></span>
+        <span class="phase-count">${phase.media.length} links</span>
+        <svg class="caret" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 9l6 6 6-6" /></svg>
+      </button>
+      <div class="phase-body">
+        <div class="task"><div class="task-body">
+          <div class="links">${links}</div>
+          <div class="embed hidden" data-embed-for="${esc(phase.key)}"></div>
+        </div></div>
+      </div>
+    </section>`;
+  }
+
+  const progress = phaseProgress(phase, employee);
   const rows = phase.policyItems
     ? phase.policyItems.map((item) => taskRow(item, employee, { policy: true })).join('')
     : phase.tasks.map((task) => taskRow(task, employee, {})).join('');
@@ -588,6 +637,30 @@ function adminView() {
     </section>
 
     <section class="card card-pad">
+      <h2>Welcome block</h2>
+      <p class="muted" style="margin-bottom:12px">Shown at the very top of every trainee's check sheet. The video URL itself lives in Training links below as <code>welcome-video</code>.</p>
+      <label class="field">
+        <span>Show the welcome block</span>
+        <select data-act="welcome-enabled">
+          <option value="on" ${(state.settings.welcome || {}).enabled === false ? '' : 'selected'}>Shown</option>
+          <option value="off" ${(state.settings.welcome || {}).enabled === false ? 'selected' : ''}>Hidden</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>Welcome message</span>
+        <textarea data-act="welcome-field" data-field="message" rows="3" placeholder="Welcome to the team!">${esc((state.settings.welcome || {}).message || '')}</textarea>
+      </label>
+      <label class="field">
+        <span>Video button title</span>
+        <input type="text" data-act="welcome-field" data-field="videoTitle" value="${esc((state.settings.welcome || {}).videoTitle || '')}" placeholder="Watch: Welcome from TG" />
+      </label>
+      <label class="field">
+        <span>Caption under the button</span>
+        <input type="text" data-act="welcome-field" data-field="videoDescription" value="${esc((state.settings.welcome || {}).videoDescription || '')}" placeholder="Most people don't make it this far — and you did…" />
+      </label>
+    </section>
+
+    <section class="card card-pad">
       <h2>Training links</h2>
       <p class="muted">${filled} of ${MEDIA_KEYS.length} links set. Paste a YouTube URL to embed it inline, or any https link to open in a new tab.</p>
       ${filled === 0 ? `<div class="warn-box" style="margin:12px 0">
@@ -719,6 +792,19 @@ function wireView() {
         break;
       }
 
+      case 'play-welcome': {
+        const container = target.closest('.card').querySelector('[data-embed-for="welcome"]');
+        const url = target.dataset.embed;
+        if (container.dataset.loaded === url) {
+          container.classList.toggle('hidden');
+        } else {
+          container.innerHTML = `<iframe src="${esc(url)}" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" title="Welcome video"></iframe>`;
+          container.dataset.loaded = url;
+          container.classList.remove('hidden');
+        }
+        break;
+      }
+
       case 'mark-opened':
         if (employee) {
           employee.watchedVideos = { ...(employee.watchedVideos || {}), [target.dataset.key]: true };
@@ -802,6 +888,23 @@ function wireView() {
       state.settings = await cloud.saveSetting('brand', target.value);
       applyBrand(target.value);
       toast('Brand updated');
+      renderStatus();
+      return;
+    }
+
+    if (target.dataset.act === 'welcome-enabled') {
+      state.settings = await cloud.saveSetting('welcome', { ...(state.settings.welcome || {}), enabled: target.value === 'on' });
+      toast('Welcome block updated');
+      renderStatus();
+      return;
+    }
+
+    if (target.dataset.act === 'welcome-field') {
+      state.settings = await cloud.saveSetting('welcome', {
+        ...(state.settings.welcome || {}),
+        [target.dataset.field]: target.value,
+      });
+      toast('Welcome block saved');
       renderStatus();
       return;
     }

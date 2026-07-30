@@ -110,6 +110,15 @@ async function scopeFor(env: Env, request: Request): Promise<Scope | null> {
   return null;
 }
 
+/**
+ * The staff code is a low-privilege shared code employees thumb-type on the
+ * line, so it is allowed to be short (an employee number, say). The admin PIN is
+ * the actual privilege boundary — deletes, sign-off authority, media links — and
+ * stays long.
+ */
+const MIN_ACCESS_CODE = 3;
+const MIN_ADMIN_PIN = 6;
+
 function validCode(value: unknown, minLength: number): value is string {
   return typeof value === 'string' && value.trim().length >= minLength && value.trim().length <= 64;
 }
@@ -187,8 +196,8 @@ export default {
     if (pathname === '/api/auth/claim' && request.method === 'POST') {
       if (await claimed(env)) return fail(request, 'Already set up. Use rotate instead.', 409);
       const body = (await request.json().catch(() => ({}))) as Dict;
-      if (!validCode(body.accessCode, 4)) return fail(request, 'Access code must be at least 4 characters', 400);
-      if (!validCode(body.adminPin, 6)) return fail(request, 'Admin PIN must be at least 6 characters', 400);
+      if (!validCode(body.accessCode, MIN_ACCESS_CODE)) return fail(request, `Access code must be at least ${MIN_ACCESS_CODE} characters`, 400);
+      if (!validCode(body.adminPin, MIN_ADMIN_PIN)) return fail(request, `Admin PIN must be at least ${MIN_ADMIN_PIN} characters`, 400);
       if (String(body.accessCode).trim() === String(body.adminPin).trim()) {
         return fail(request, 'Access code and admin PIN must be different', 400);
       }
@@ -216,11 +225,11 @@ export default {
         return fail(request, 'Current admin PIN is wrong', 401);
       }
       if (body.accessCode !== undefined) {
-        if (!validCode(body.accessCode, 4)) return fail(request, 'Access code must be at least 4 characters', 400);
+        if (!validCode(body.accessCode, MIN_ACCESS_CODE)) return fail(request, `Access code must be at least ${MIN_ACCESS_CODE} characters`, 400);
         await writeCredential(env, 'access_code', String(body.accessCode).trim());
       }
       if (body.adminPin !== undefined) {
-        if (!validCode(body.adminPin, 6)) return fail(request, 'Admin PIN must be at least 6 characters', 400);
+        if (!validCode(body.adminPin, MIN_ADMIN_PIN)) return fail(request, `Admin PIN must be at least ${MIN_ADMIN_PIN} characters`, 400);
         await writeCredential(env, 'admin_pin', String(body.adminPin).trim());
       }
       return json(request, { rotated: true });
