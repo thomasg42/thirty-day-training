@@ -151,23 +151,15 @@ async function boot() {
   applyBrand(DEFAULT_BRAND);
   startClock();
 
-  let status;
-  try {
-    status = await cloud.fetchStatus();
-  } catch {
-    // Offline on a cold start: run from cache if this device was unlocked before.
-    if (cloud.storedToken()) return startApp({ offline: true });
-    return renderLock({ offline: true });
+  // No staff passcode (Thomas 2026-10-04): the app opens straight in. Only a
+  // device that already elevated with the admin PIN carries a token to re-check.
+  if (cloud.storedToken()) {
+    try {
+      await cloud.revalidateSession();
+    } catch {
+      return startApp({ offline: true });
+    }
   }
-
-  if (!status.claimed) return renderSetup();
-  if (!cloud.storedToken()) return renderLock({});
-
-  // Credential re-claims leave the old token in localStorage while the UI still
-  // paints ADMIN. Re-check before loading the sheet so a dead token forces unlock
-  // instead of a stuck offline outbox with missing training links.
-  const scope = await cloud.revalidateSession();
-  if (!scope) return renderLock({});
   return startApp({});
 }
 

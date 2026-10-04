@@ -76,7 +76,7 @@ async function request(path, { method = 'GET', body, token, allowAnonymous = fal
   const headers = { 'Content-Type': 'application/json' };
   const bearer = token ?? storedToken();
   if (bearer) headers.Authorization = `Bearer ${bearer}`;
-  else if (!allowAnonymous) throw new Error('Not unlocked');
+  // No staff passcode (Thomas 2026-10-04): anonymous calls are staff; only the admin PIN is a bearer.
 
   const response = await fetch(`${API_BASE}${path}`, {
     method,

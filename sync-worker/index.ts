@@ -92,22 +92,28 @@ async function writeCredential(env: Env, name: string, code: string): Promise<vo
 }
 
 async function claimed(env: Env): Promise<boolean> {
-  const row = await env.DB.prepare('SELECT COUNT(*) AS total FROM credentials').first<{ total: number }>();
-  return Boolean(row && row.total > 0);
+  // Thomas 2026-10-04: no staff passcode. Nothing to claim; the app opens straight in.
+  void env;
+  return true;
 }
 
-async function scopeFor(env: Env, request: Request): Promise<Scope | null> {
-  const header = request.headers.get('Authorization') || '';
-  const code = header.startsWith('Bearer ') ? header.slice(7) : '';
-  if (!code) return null;
+/** Thomas 2026-10-04: no staff passcode. The admin PIN already on the server is untouched. */
 
+async function isAdminCode(env: Env, code: string): Promise<boolean> {
+  if (!code) return false;
   const admin = await readCredential(env, 'admin_pin');
-  if (admin && sameHash(await hashCode(admin.salt, code), admin.hash)) return 'admin';
+  if (!admin) return false;
+  return sameHash(await hashCode(admin.salt, code), admin.hash);
+}
 
-  const staff = await readCredential(env, 'access_code');
-  if (staff && sameHash(await hashCode(staff.salt, code), staff.hash)) return 'staff';
+function bearerCode(request: Request): string {
+  const header = request.headers.get('Authorization') || '';
+  return header.startsWith('Bearer ') ? header.slice(7) : '';
+}
 
-  return null;
+/** Open access: everyone is staff; a matching admin PIN lifts them to admin. */
+async function scopeFor(env: Env, request: Request): Promise<Scope | null> {
+  return (await isAdminCode(env, bearerCode(request))) ? 'admin' : 'staff';
 }
 
 /**
@@ -207,9 +213,9 @@ export default {
     }
 
     if (pathname === '/api/auth/verify' && request.method === 'POST') {
-      const scope = await scopeFor(env, request);
-      if (!scope) return fail(request, 'Wrong code', 401);
-      return json(request, { scope });
+      const code = bearerCode(request);
+      if (code && !(await isAdminCode(env, code))) return fail(request, 'Wrong code', 401);
+      return json(request, { scope: code ? 'admin' : 'staff' });
     }
 
     /* ---- everything below needs at least staff scope ---- */
@@ -219,9 +225,8 @@ export default {
 
     if (pathname === '/api/auth/rotate' && request.method === 'POST') {
       const body = (await request.json().catch(() => ({}))) as Dict;
-      const admin = await readCredential(env, 'admin_pin');
       const supplied = String(body.currentAdminPin || '');
-      if (!admin || !sameHash(await hashCode(admin.salt, supplied), admin.hash)) {
+      if (!(await isAdminCode(env, supplied))) {
         return fail(request, 'Current admin PIN is wrong', 401);
       }
       if (body.accessCode !== undefined) {
